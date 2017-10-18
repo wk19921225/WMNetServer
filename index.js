@@ -142,9 +142,18 @@ ChatSever.on("connection",function (client) {
     let item = {
       serialNumber,date,turb,dissolvedOxygen,cond,ph,cod,temper,enterPump,outPump
     };
-    var db = require('./db')
-    db.writeWMData(db.createCon(),item);
+    const db = require('./db');
+    db.createCon(item)
+      .then(db.writeWMData(connection,item),function (Error) {
+      console.log(Error)
+      })
+      .then(db.findId(connection,item),function (Error) {
+      console.log(Error)
     })
-})//"属性"一般用双引号
-ChatSever.listen(9000,"172.17.173.170");   //node监听放在最下面
+      .then(db.readPumpStatus(connection,item,id),function (Error) {
+        console.log(Error)
+      })
+    })
+});
+ChatSever.listen(9000,"172.17.173.170");
 console.log("sever is running 9000 \n waiting...");
