@@ -1,20 +1,22 @@
 
-var net = require('net');          //引入net模块
-var ChatSever =  net.createServer(); //net.createSever()方法建立chatsever
+const net = require('net');
+const db = require('./db');//引入net模块
+const ChatSever =  net.createServer(); //net.createSever()方法建立chatsever
 ChatSever.on("connection",function (client) {
     console.log("connected...");
     const buf = new Buffer([0x01, 0x01,0x01,0x01]);//四位，1为进水电机参数控制位，2为进水电机状态位，3为出水电机参数控制位，4为出水电机状态位
     client.write(buf);
     client.on("data",function (data) {
-        //console.log(data[18]);
+        //console.log(data);
         var hexNumber = [];
         var date = new Date().getTime();
         for (var i = 0; i < data.length; i++) {
             hexNumber.push(data[i].toString(16));
         }
-        const pumpStatus = hexNumber.pop();
+        const pumpStatus = parseInt(hexNumber.pop());
       let enterPump;
       let outPump;
+      console.log(pumpStatus)
         if(pumpStatus === 0){
            enterPump = true;
            outPump = true;
@@ -142,16 +144,14 @@ ChatSever.on("connection",function (client) {
     let item = {
       serialNumber,date,turb,dissolvedOxygen,cond,ph,cod,temper,enterPump,outPump
     };
-    const db = require('./db');
     db.createCon(item)
-      .then(db.writeWMData(connection,item),function (Error) {
+      .then(db.writeWMData(item),function (Error) {
       console.log(Error)
       })
-      .then(db.findId(connection,item),function (Error) {
+      .then(function (item) {
+        db.findId(item,db.readPumpStatus,db.updatePumpStatus)
+      },function (Error) {
       console.log(Error)
-    })
-      .then(db.readPumpStatus(connection,item,id),function (Error) {
-        console.log(Error)
       })
     })
 });
