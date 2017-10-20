@@ -1,18 +1,18 @@
 
-var net = require('net');          //引入net模块
-var ChatSever =  net.createServer(); //net.createSever()方法建立chatsever
+const db = require('./db');
+const net = require('net');          //引入net模块
+const ChatSever =  net.createServer(); //net.createSever()方法建立chatsever
 ChatSever.on("connection",function (client) {
     console.log("connected...");
-    const buf = new Buffer([0x01, 0x01,0x01,0x01]);//四位，1为进水电机参数控制位，2为进水电机状态位，3为出水电机参数控制位，4为出水电机状态位
-    client.write(buf);
+     // const buf = new Buffer([0x01, 0x01,0x01,0x01]);//四位，1为进水电机参数控制位，2为进水电机状态位，3为出水电机参数控制位，4为出水电机状态位
+     // client.write(buf);
     client.on("data",function (data) {
-        //console.log(data[18]);
         var hexNumber = [];
         var date = new Date().getTime();
         for (var i = 0; i < data.length; i++) {
             hexNumber.push(data[i].toString(16));
         }
-        const pumpStatus = hexNumber.pop();
+        const pumpStatus = parseInt(hexNumber.pop(),10);
       let enterPump;
       let outPump;
         if(pumpStatus === 0){
@@ -20,13 +20,13 @@ ChatSever.on("connection",function (client) {
            outPump = true;
             console.log("入水电机启动  出水电机启动");
         } else if(pumpStatus === 1){
+           enterPump =  false;
+           outPump = true;
+            console.log("入水点击关闭  出水电机启动");
+        }else if(pumpStatus === 2){
            enterPump = true;
            outPump = false;
             console.log("入水点击启动  出水电机关闭");
-        }else if(pumpStatus === 2){
-           enterPump = false;
-           outPump = true;
-            console.log("入水点击关闭  出水电机启动");
         }else{
            enterPump = false;
            outPump = false;
@@ -140,10 +140,19 @@ ChatSever.on("connection",function (client) {
 
         console.log("设备串码 : " + serialNumber + " 时间戳 : " + date + " 水温 :" + temper + "摄氏度 " + " 电导率 :" + cond.toFixed(2) + "uS/cm " + " 浊度 : " + turb.toFixed(2) + "NTU " + " 固体悬浮物 : " + solid + "mgL" + " 溶解氧 : " + dissolvedOxygen.toFixed(2) + "mg/L " + " PH : " + ph);
     let item = {
-      serialNumber,date,turb,dissolvedOxygen,cond,ph,cod,temper,enterPump,outPump
+      serialNumber,date,turb,dissolvedOxygen,cond,ph,cod,temper,enterPump,outPump,client
     };
-    var db = require('./db')
-    db.writeWMData(db.createCon(),item);
+
+    db.createCon(item)
+      .then(function (items) {
+        return db.verifyPumpStatus(items)
+      })
+      .then(function (items) {
+        return db.verifyPumpControl(items)
+      })
+      .then(function (totalItem) {
+        return db.verifyTotalItem(totalItem,totalItem.that.updatePumpStatus,totalItem.that.updatePumpControl,totalItem.that.controlPump)
+      })
     })
 })//"属性"一般用双引号
 ChatSever.listen(9000,"172.17.173.170");   //node监听放在最下面
